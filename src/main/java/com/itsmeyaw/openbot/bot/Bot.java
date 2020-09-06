@@ -6,15 +6,18 @@ import com.itsmeyaw.openbot.bot.util.Dictionary;
 import com.itsmeyaw.openbot.bot.util.DictionaryEntry;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.core.event.domain.guild.GuildCreateEvent;
+import discord4j.core.event.domain.lifecycle.ConnectEvent;
+import discord4j.core.event.domain.lifecycle.ReadyEvent;
+import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.channel.Channel;
 import discord4j.gateway.GatewayClient;
 import lombok.NonNull;
 
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Bot {
@@ -33,6 +36,7 @@ public class Bot {
         message.getChannel()
                 .flatMap(messageChannel -> messageChannel.createMessage("U+1F3D3 Pong!\nMy latency is " + getLatency().toMillis() + " ms"))
                 .subscribe();
+        return message;
     };
 
     private Duration getLatency() {
@@ -53,7 +57,56 @@ public class Bot {
                             e.printStackTrace();
                         }
                     });
+            this.start();
         }
+    }
+
+    private void start() {
+        gateway.getEventDispatcher()
+                .on(ReadyEvent.class)
+                .subscribe(readyEvent -> {
+                    User self = readyEvent.getSelf();
+                    System.out.println(String.format("Logged in %s#%s", self.getUsername(), self.getDiscriminator()));
+                });
+
+        gateway.getEventDispatcher()
+                .on(GuildCreateEvent.class)
+                .subscribe(guildCreateEvent -> guildsPrefix.put(guildCreateEvent.getGuild().getId().asLong(), defaultPrefix));
+
+        gateway.getEventDispatcher()
+                .on(MessageCreateEvent.class)
+                .map(MessageCreateEvent::getMessage)
+                .map(message -> {
+                    if (message.getAuthor().map(author -> !author.isBot()).orElse(false)) {
+                        if (message.getChannel().map(messageChannel -> messageChannel.getType() == Channel.Type.GUILD_TEXT).block()) {
+                            String prefix = guildsPrefix.get(message.getGuild().block().getId().asLong());
+                            if (message.getContent().startsWith(prefix)) {
+                                String[] input = message.getContent().replaceFirst(prefix, "").split(" ");
+                                if (input.length > 0) {
+                                    dictionary.entrySet().stream()
+                                            .filter(entry -> entry.getKey().equalsIgnoreCase(input[0]))
+                                            .findAny()
+                                            .ifPresentOrElse(entry -> entry.getValue().execute(message),
+                                                    () -> message.getChannel().flatMap(messageChannel -> messageChannel.createMessage("Cannot understand command!")).subscribe());
+                                }
+                            }
+                        } else if (message.getChannel().map(messageChannel -> messageChannel.getType() != Channel.Type.GUILD_TEXT).block() &&
+                                message.getContent().startsWith(defaultPrefix)) {
+                            String[] input = message.getContent().replaceFirst(defaultPrefix, "").split(" ");
+                            if (input.length > 0) {
+                                dictionary.entrySet().stream()
+                                        .filter(entry -> entry.getKey().equalsIgnoreCase(input[0]))
+                                        .findAny()
+                                        .ifPresentOrElse(entry -> entry.getValue().execute(message),
+                                                () -> message.getChannel().flatMap(messageChannel -> messageChannel.createMessage("Cannot understand command!")).subscribe());
+                            }
+                        }
+                    }
+                    return message;
+                })
+                .subscribe();
+
+        gateway.onDisconnect().block();
     }
 
     public static Bot getBotInstance() {
