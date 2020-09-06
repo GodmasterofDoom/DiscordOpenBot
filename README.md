@@ -1,2 +1,2 @@
-# DiscordOpenBot
-A free basic Bot source code for Discord based on project discord.py
+# Discord Open Bot
+A free basic Bot source code for Discord based on Discord4J and Spring
