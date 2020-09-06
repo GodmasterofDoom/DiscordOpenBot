@@ -7,7 +7,6 @@ import com.itsmeyaw.openbot.bot.util.DictionaryEntry;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.guild.GuildCreateEvent;
-import discord4j.core.event.domain.lifecycle.ConnectEvent;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
@@ -34,7 +33,7 @@ public class Bot {
     @DictionaryEntry(key = "ping")
     Command ping = (@NonNull @AllChannelType Message message) -> {
         message.getChannel()
-                .flatMap(messageChannel -> messageChannel.createMessage("U+1F3D3 Pong!\nMy latency is " + getLatency().toMillis() + " ms"))
+                .flatMap(messageChannel -> messageChannel.createMessage("\uD83C\uDFD3 Pong!\nMy latency is " + getLatency().toMillis() + " ms"))
                 .subscribe();
         return message;
     };
@@ -52,7 +51,7 @@ public class Bot {
                     .filter(field -> field.isAnnotationPresent(DictionaryEntry.class))
                     .forEach(field -> {
                         try {
-                            dictionary.put(field.getAnnotation(DictionaryEntry.class).key(), (Command) field.get(null));
+                            dictionary.put(field.getAnnotation(DictionaryEntry.class).key(), (Command) field.get(this));
                         } catch (IllegalAccessException e) {
                             e.printStackTrace();
                         }
@@ -66,12 +65,16 @@ public class Bot {
                 .on(ReadyEvent.class)
                 .subscribe(readyEvent -> {
                     User self = readyEvent.getSelf();
-                    System.out.println(String.format("Logged in %s#%s", self.getUsername(), self.getDiscriminator()));
+                    System.out.println(String.format("Logged in as %s#%s", self.getUsername(), self.getDiscriminator()));
                 });
 
         gateway.getEventDispatcher()
                 .on(GuildCreateEvent.class)
-                .subscribe(guildCreateEvent -> guildsPrefix.put(guildCreateEvent.getGuild().getId().asLong(), defaultPrefix));
+                .subscribe(guildCreateEvent -> {
+                    System.out.println("Joined new Guild: " + guildCreateEvent.getGuild().getName());
+                    if (!guildsPrefix.containsKey(guildCreateEvent.getGuild().getId().asLong()))
+                        guildsPrefix.put(guildCreateEvent.getGuild().getId().asLong(), defaultPrefix);
+                });
 
         gateway.getEventDispatcher()
                 .on(MessageCreateEvent.class)
@@ -86,8 +89,7 @@ public class Bot {
                                     dictionary.entrySet().stream()
                                             .filter(entry -> entry.getKey().equalsIgnoreCase(input[0]))
                                             .findAny()
-                                            .ifPresentOrElse(entry -> entry.getValue().execute(message),
-                                                    () -> message.getChannel().flatMap(messageChannel -> messageChannel.createMessage("Cannot understand command!")).subscribe());
+                                            .ifPresent(entry -> entry.getValue().execute(message));
                                 }
                             }
                         } else if (message.getChannel().map(messageChannel -> messageChannel.getType() != Channel.Type.GUILD_TEXT).block() &&
@@ -97,8 +99,7 @@ public class Bot {
                                 dictionary.entrySet().stream()
                                         .filter(entry -> entry.getKey().equalsIgnoreCase(input[0]))
                                         .findAny()
-                                        .ifPresentOrElse(entry -> entry.getValue().execute(message),
-                                                () -> message.getChannel().flatMap(messageChannel -> messageChannel.createMessage("Cannot understand command!")).subscribe());
+                                        .ifPresent(entry -> entry.getValue().execute(message));
                             }
                         }
                     }
