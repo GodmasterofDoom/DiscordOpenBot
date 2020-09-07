@@ -1,6 +1,6 @@
 package com.itsmeyaw.openbot.bot;
 
-import com.itsmeyaw.openbot.bot.util.channelAnnotator.AllChannelType;
+import com.itsmeyaw.openbot.bot.util.messageAnnotator.AllChannelType;
 import com.itsmeyaw.openbot.bot.util.Command;
 import com.itsmeyaw.openbot.bot.util.Dictionary;
 import com.itsmeyaw.openbot.bot.util.DictionaryEntry;
@@ -31,16 +31,34 @@ public class Bot {
     private final Map<String, Command> dictionary = new HashMap<>();
 
     @DictionaryEntry(key = "ping")
-    Command ping = (@NonNull @AllChannelType Message message) -> {
-        message.getChannel()
-                .flatMap(messageChannel -> messageChannel.createMessage("\uD83C\uDFD3 Pong!\nMy latency is " + getLatency().toMillis() + " ms"))
-                .subscribe();
-        return message;
-    };
+    Command ping =
+            new Command() {
+                @Override
+                public Message execute(@NonNull @AllChannelType Message message) {
+                    message.getChannel()
+                            .flatMap(messageChannel -> messageChannel.createMessage("\uD83C\uDFD3 Pong!\nMy latency is " + Objects.requireNonNullElse(messageChannel.getClient().getGatewayClient(0).map(GatewayClient::getResponseTime).get(), Duration.ZERO).toMillis() + " ms"))
+                            .subscribe();
+                    return message;
+                }
 
-    private Duration getLatency() {
-        return gateway.getGatewayClient(0).map(GatewayClient::getResponseTime).orElse(Duration.ZERO);
-    }
+                @Override
+                public String getDescription() {
+                    return "Get the latency of Bot.";
+                }
+            };
+
+    @DictionaryEntry(key = "help")
+    Command help = new Command() {
+        @Override
+        public Message execute(@NonNull @AllChannelType Message message) {
+            return null;
+        }
+
+        @Override
+        public String getDescription() {
+            return "Show this message.";
+        }
+    };
 
     private Bot() {
         if (botInstance != null) {
@@ -81,7 +99,7 @@ public class Bot {
                 .map(MessageCreateEvent::getMessage)
                 .map(message -> {
                     if (message.getAuthor().map(author -> !author.isBot()).orElse(false)) {
-                        if (message.getChannel().map(messageChannel -> messageChannel.getType() == Channel.Type.GUILD_TEXT).block()) {
+                        if (Objects.requireNonNullElse(message.getChannel().map(messageChannel -> messageChannel.getType() == Channel.Type.GUILD_TEXT).block(), false)) {
                             String prefix = guildsPrefix.get(message.getGuild().block().getId().asLong());
                             if (message.getContent().startsWith(prefix)) {
                                 String[] input = message.getContent().replaceFirst(prefix, "").split(" ");
@@ -92,7 +110,7 @@ public class Bot {
                                             .ifPresent(entry -> entry.getValue().execute(message));
                                 }
                             }
-                        } else if (message.getChannel().map(messageChannel -> messageChannel.getType() != Channel.Type.GUILD_TEXT).block() &&
+                        } else if (Objects.requireNonNullElse(message.getChannel().map(messageChannel -> messageChannel.getType() != Channel.Type.GUILD_TEXT).block(), false) &&
                                 message.getContent().startsWith(defaultPrefix)) {
                             String[] input = message.getContent().replaceFirst(defaultPrefix, "").split(" ");
                             if (input.length > 0) {

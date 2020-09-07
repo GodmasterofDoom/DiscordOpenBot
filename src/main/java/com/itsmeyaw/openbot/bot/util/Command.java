@@ -5,4 +5,5 @@ import lombok.NonNull;
 
 public interface Command {
     public Message execute(@NonNull Message message);
+    public String getDescription();
 }
