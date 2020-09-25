@@ -1,6 +1,6 @@
-package com.itsmeyaw.openbot.bot.util.messageAnnotator;
+package com.itsmeyaw.openbot.util.messageAnnotator;
 
-import discord4j.core.object.entity.Message;
+import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.channel.Channel;
 
 import javax.validation.Constraint;
@@ -18,10 +18,10 @@ public @interface GuildTextType {
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 
-    class GuildTextTypeValidator implements ConstraintValidator<GuildTextType, Message> {
+    class GuildTextTypeValidator implements ConstraintValidator<GuildTextType, MessageCreateEvent> {
         @Override
-        public boolean isValid(Message message, ConstraintValidatorContext constraintValidatorContext) {
-            return Objects.requireNonNull(message.getChannel().block()).getType() == Channel.Type.GUILD_TEXT;
+        public boolean isValid(MessageCreateEvent messageCreateEvent, ConstraintValidatorContext constraintValidatorContext) {
+            return Objects.requireNonNull(messageCreateEvent.getMessage().getChannel().block()).getType() == Channel.Type.GUILD_TEXT;
         }
     }
 }

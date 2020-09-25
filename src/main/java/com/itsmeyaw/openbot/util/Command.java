@@ -1,4 +1,4 @@
-package com.itsmeyaw.openbot.bot.util;
+package com.itsmeyaw.openbot.util;
 
 import discord4j.core.object.entity.Message;
 import lombok.NonNull;

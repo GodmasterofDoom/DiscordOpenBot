@@ -1,4 +1,4 @@
-package com.itsmeyaw.openbot.bot.util.messageAnnotator;
+package com.itsmeyaw.openbot.util.messageAnnotator;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
